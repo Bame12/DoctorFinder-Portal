@@ -1,8 +1,9 @@
+// src/components/Dashboard/Dashboard.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { collection, getDocs } from 'firebase/firestore';
-import { auth, db } from '../../firebase';
+import { database, auth } from '../../firebase/firebase';
+import { ref, onValue } from 'firebase/database';
 import {
     Container,
     Grid,
@@ -29,18 +30,23 @@ function Dashboard() {
     useEffect(() => {
         const fetchData = async () => {
             // Count doctors
-            const doctorsSnapshot = await getDocs(collection(db, "doctors"));
-            setDoctorCount(doctorsSnapshot.size);
+            const doctorsRef = ref(database, 'doctors');
+            onValue(doctorsRef, (snapshot) => {
+                const data = snapshot.val();
+                const doctorsCount = data ? Object.keys(data).length : 0;
+                setDoctorCount(doctorsCount);
 
-            // Get unique specialties
-            const specialties = new Set();
-            doctorsSnapshot.forEach(doc => {
-                const doctorData = doc.data();
-                if (doctorData.specialty) {
-                    specialties.add(doctorData.specialty);
+                // Get unique specialties
+                const specialties = new Set();
+                if (data) {
+                    Object.values(data).forEach(doctor => {
+                        if (doctor.specialty) {
+                            specialties.add(doctor.specialty);
+                        }
+                    });
                 }
+                setSpecialtyCount(specialties.size);
             });
-            setSpecialtyCount(specialties.size);
         };
 
         fetchData();

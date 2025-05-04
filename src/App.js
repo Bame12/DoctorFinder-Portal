@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
+import { initializeDatabase } from './firebase/initializeDb';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -41,6 +42,14 @@ const theme = createTheme({
 
 function App() {
   const [user, loading] = useAuthState(auth);
+
+    useEffect(() => {
+
+        const initDb = async () => {
+            await initializeDatabase();
+        };
+        initDb();
+    }, []);
 
   if (loading) {
     return (

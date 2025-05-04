@@ -1,7 +1,8 @@
+// src/components/Doctors/DoctorList.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { database, auth } from '../../firebase/firebase';
+import { ref, onValue, remove } from 'firebase/database';
 import {
     Container,
     Typography,
@@ -35,7 +36,6 @@ import {
     ExitToApp as LogoutIcon,
 } from '@mui/icons-material';
 import { signOut } from 'firebase/auth';
-import { auth } from '../../firebase';
 
 function DoctorList() {
     const navigate = useNavigate();
@@ -53,25 +53,29 @@ function DoctorList() {
 
     const fetchDoctors = async () => {
         try {
-            const doctorsSnapshot = await getDocs(collection(db, "doctors"));
-            const doctorsList = [];
-            const specialtiesSet = new Set();
+            const doctorsRef = ref(database, 'doctors');
+            onValue(doctorsRef, (snapshot) => {
+                const data = snapshot.val();
+                const doctorsList = [];
+                const specialtiesSet = new Set();
 
-            doctorsSnapshot.forEach((doc) => {
-                const data = doc.data();
-                doctorsList.push({
-                    id: doc.id,
-                    ...data
-                });
+                if (data) {
+                    Object.entries(data).forEach(([key, value]) => {
+                        doctorsList.push({
+                            id: key,
+                            ...value
+                        });
 
-                if (data.specialty) {
-                    specialtiesSet.add(data.specialty);
+                        if (value.specialty) {
+                            specialtiesSet.add(value.specialty);
+                        }
+                    });
                 }
-            });
 
-            setDoctors(doctorsList);
-            setSpecialties(Array.from(specialtiesSet));
-            setLoading(false);
+                setDoctors(doctorsList);
+                setSpecialties(Array.from(specialtiesSet));
+                setLoading(false);
+            });
         } catch (error) {
             console.error("Error fetching doctors: ", error);
             setLoading(false);
@@ -92,8 +96,8 @@ function DoctorList() {
     const handleDeleteConfirm = async () => {
         if (doctorToDelete) {
             try {
-                await deleteDoc(doc(db, "doctors", doctorToDelete.id));
-                setDoctors(doctors.filter(doc => doc.id !== doctorToDelete.id));
+                const doctorRef = ref(database, `doctors/${doctorToDelete.id}`);
+                await remove(doctorRef);
                 setDeleteDialogOpen(false);
                 setDoctorToDelete(null);
             } catch (error) {

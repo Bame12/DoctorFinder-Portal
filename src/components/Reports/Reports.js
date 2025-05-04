@@ -1,9 +1,9 @@
+// src/components/Reports/Reports.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { database, auth } from '../../firebase/firebase';
+import { ref, onValue } from 'firebase/database';
 import { signOut } from 'firebase/auth';
-import { auth } from '../../firebase';
 import {
     Container,
     Typography,
@@ -30,7 +30,6 @@ import {
 } from 'chart.js';
 import { Pie, Bar } from 'react-chartjs-2';
 
-// Register ChartJS components
 ChartJS.register(
     ArcElement,
     CategoryScale,
@@ -54,18 +53,23 @@ function Reports() {
 
     const fetchData = async () => {
         try {
-            const doctorsSnapshot = await getDocs(collection(db, "doctors"));
-            const doctorsList = [];
+            const doctorsRef = ref(database, 'doctors');
+            onValue(doctorsRef, (snapshot) => {
+                const data = snapshot.val();
+                const doctorsList = [];
 
-            doctorsSnapshot.forEach((doc) => {
-                doctorsList.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
+                if (data) {
+                    Object.entries(data).forEach(([key, value]) => {
+                        doctorsList.push({
+                            id: key,
+                            ...value
+                        });
+                    });
+                }
+
+                setDoctors(doctorsList);
+                setLoading(false);
             });
-
-            setDoctors(doctorsList);
-            setLoading(false);
         } catch (error) {
             setError("Error fetching data: " + error.message);
             setLoading(false);
@@ -78,7 +82,6 @@ function Reports() {
         });
     };
 
-    // Generate data for specialty distribution chart
     const getSpecialtyData = () => {
         const specialtyCounts = {};
 
@@ -98,24 +101,10 @@ function Reports() {
                     label: 'Doctors by Specialty',
                     data,
                     backgroundColor: [
-                        'rgba(255, 99, 132, 0.6)',
-                        'rgba(54, 162, 235, 0.6)',
-                        'rgba(255, 206, 86, 0.6)',
-                        'rgba(75, 192, 192, 0.6)',
-                        'rgba(153, 102, 255, 0.6)',
-                        'rgba(255, 159, 64, 0.6)',
-                        'rgba(255, 99, 132, 0.8)',
-                        'rgba(54, 162, 235, 0.8)',
-                        'rgba(255, 206, 86, 0.8)',
-                        'rgba(75, 192, 192, 0.8)',
-                        'rgba(153, 102, 255, 0.8)',
-                        'rgba(255, 159, 64, 0.8)',
-                        'rgba(255, 99, 132, 0.9)',
-                        'rgba(54, 162, 235, 0.9)',
-                        'rgba(255, 206, 86, 0.9)',
-                        'rgba(75, 192, 192, 0.9)',
-                        'rgba(153, 102, 255, 0.9)',
-                        'rgba(255, 159, 64, 0.9)',
+                        'rgba(255, 99, 132, 0.6)', 'rgba(54, 162, 235, 0.6)',
+                        'rgba(255, 206, 86, 0.6)', 'rgba(75, 192, 192, 0.6)',
+                        'rgba(153, 102, 255, 0.6)', 'rgba(255, 159, 64, 0.6)',
+                        // Add more colors as needed
                     ],
                     borderWidth: 1,
                 },
@@ -123,7 +112,6 @@ function Reports() {
         };
     };
 
-    // Generate data for experience distribution chart
     const getExperienceData = () => {
         const experienceBins = {
             '0-5 years': 0,
@@ -156,12 +144,8 @@ function Reports() {
         };
     };
 
-    // Generate summary data
     const getSummaryData = () => {
-        // Count doctors by availability
         const availableDoctors = doctors.filter(doctor => doctor.isAvailable).length;
-
-        // Get unique specialties
         const specialties = new Set();
         doctors.forEach(doctor => {
             if (doctor.specialty) {

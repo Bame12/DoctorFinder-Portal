@@ -1,10 +1,10 @@
+// src/components/Doctors/AddDoctor.js
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../../firebase';
+import { database, storage, auth } from '../../firebase/firebase';
+import { ref, push, set } from 'firebase/database';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { signOut } from 'firebase/auth';
-import { auth } from '../../firebase';
 import {
     Container,
     Typography,
@@ -23,7 +23,6 @@ import {
 } from '@mui/material';
 import { ExitToApp as LogoutIcon, Save as SaveIcon, ArrowBack as BackIcon } from '@mui/icons-material';
 
-// List of medical specialties
 const SPECIALTIES = [
     'General Practitioner',
     'Pediatrician',
@@ -55,12 +54,14 @@ function AddDoctor() {
         email: '',
         phone: '',
         address: '',
+        city: 'Gaborone',
         latitude: '',
         longitude: '',
         about: '',
         education: '',
         experience: '',
-        isAvailable: true
+        isAvailable: true,
+        acceptsInsurance: false
     });
 
     const [photo, setPhoto] = useState(null);
@@ -90,40 +91,37 @@ function AddDoctor() {
         setError('');
 
         try {
-            // Create doctor object
             const doctorData = { ...formData };
 
-            // If photo was selected, upload it to storage
+            // Upload photo if selected
             if (photo) {
-                const storageRef = ref(storage, `doctors/${Date.now()}_${photo.name}`);
-                const uploadResult = await uploadBytes(storageRef, photo);
+                const photoRef = storageRef(storage, `doctors/${Date.now()}_${photo.name}`);
+                const uploadResult = await uploadBytes(photoRef, photo);
                 const photoURL = await getDownloadURL(uploadResult.ref);
-                doctorData.photoURL = photoURL;
+                doctorData.photoUrl = photoURL;
             }
 
-            // Add doctor to Firestore
-            await addDoc(collection(db, "doctors"), doctorData);
+            // Create location object
+            if (formData.latitude && formData.longitude) {
+                doctorData.location = {
+                    latitude: parseFloat(formData.latitude),
+                    longitude: parseFloat(formData.longitude)
+                };
+            }
+
+            // Add to Realtime Database
+            const doctorsRef = ref(database, 'doctors');
+            const newDoctorRef = push(doctorsRef);
+            await set(newDoctorRef, {
+                ...doctorData,
+                id: newDoctorRef.key,
+                createdAt: Date.now(),
+                rating: 0,
+                reviewCount: 0,
+                experience: parseInt(formData.experience) || 0
+            });
 
             setSuccessMessage('Doctor added successfully!');
-
-            // Reset form
-            setFormData({
-                name: '',
-                specialty: '',
-                email: '',
-                phone: '',
-                address: '',
-                latitude: '',
-                longitude: '',
-                about: '',
-                education: '',
-                experience: '',
-                isAvailable: true
-            });
-            setPhoto(null);
-            setPhotoPreview('');
-
-            // Show success message and redirect after a short delay
             setTimeout(() => {
                 navigate('/doctors');
             }, 2000);
@@ -254,6 +252,16 @@ function AddDoctor() {
                             <Grid item xs={12} md={6}>
                                 <TextField
                                     fullWidth
+                                    label="City"
+                                    name="city"
+                                    value={formData.city}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
                                     label="Latitude"
                                     name="latitude"
                                     type="number"
@@ -325,6 +333,20 @@ function AddDoctor() {
                                         />
                                     }
                                     label="Available for appointments"
+                                />
+                            </Grid>
+
+                            <Grid item xs={12}>
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            checked={formData.acceptsInsurance}
+                                            onChange={handleChange}
+                                            name="acceptsInsurance"
+                                            color="primary"
+                                        />
+                                    }
+                                    label="Accepts medical insurance"
                                 />
                             </Grid>
 
