@@ -1,24 +1,100 @@
-import logo from './logo.svg';
-import './App.css';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
+
+// Import Firebase
+import { auth } from './firebase';
+
+// Import Components
+import Login from './components/Auth/Login';
+import Dashboard from './components/Dashboard/Dashboard';
+import DoctorList from './components/Doctors/DoctorList';
+import AddDoctor from './components/Doctors/AddDoctor';
+import EditDoctor from './components/Doctors/EditDoctor';
+import Reports from './components/Reports/Reports';
+
+// Create theme
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2',
+    },
+    secondary: {
+      main: '#dc004e',
+    },
+    background: {
+      default: '#f5f5f5',
+    },
+  },
+  typography: {
+    fontFamily: [
+      'Roboto',
+      'Arial',
+      'sans-serif'
+    ].join(','),
+  },
+});
 
 function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
+  const [user, loading] = useAuthState(auth);
+
+  if (loading) {
+    return (
+        <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              height: '100vh',
+            }}
         >
-          Learn React
-        </a>
-      </header>
-    </div>
+          <CircularProgress />
+        </Box>
+    );
+  }
+
+  return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Router>
+          <Routes>
+            {/* Public Route */}
+            <Route
+                path="/login"
+                element={!user ? <Login /> : <Navigate to="/" />}
+            />
+
+            {/* Protected Routes */}
+            <Route
+                path="/"
+                element={user ? <Dashboard /> : <Navigate to="/login" />}
+            />
+            <Route
+                path="/doctors"
+                element={user ? <DoctorList /> : <Navigate to="/login" />}
+            />
+            <Route
+                path="/doctors/add"
+                element={user ? <AddDoctor /> : <Navigate to="/login" />}
+            />
+            <Route
+                path="/doctors/edit/:id"
+                element={user ? <EditDoctor /> : <Navigate to="/login" />}
+            />
+            <Route
+                path="/reports"
+                element={user ? <Reports /> : <Navigate to="/login" />}
+            />
+
+            {/* Redirect any unmatched routes */}
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </Router>
+      </ThemeProvider>
   );
 }
 
