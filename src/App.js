@@ -8,7 +8,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 
 // Import Firebase
-import { auth } from './firebase';
+import { auth } from './firebase/firebase';
 
 // Import Components
 import Login from './components/Auth/Login';
