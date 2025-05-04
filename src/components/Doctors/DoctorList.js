@@ -28,6 +28,9 @@ import {
     DialogTitle,
     AppBar,
     Toolbar,
+    Alert,
+    CircularProgress,
+    Snackbar,
 } from '@mui/material';
 import {
     Edit as EditIcon,
@@ -46,38 +49,67 @@ function DoctorList() {
     const [specialties, setSpecialties] = useState([]);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [doctorToDelete, setDoctorToDelete] = useState(null);
+    const [error, setError] = useState(null);
+    const [deleteError, setDeleteError] = useState(null);
+    const [snackbarOpen, setSnackbarOpen] = useState(false);
+    const [snackbarMessage, setSnackbarMessage] = useState('');
 
     useEffect(() => {
         fetchDoctors();
     }, []);
-
     const fetchDoctors = async () => {
+        setLoading(true);
+        setError(null);
         try {
             const doctorsRef = ref(database, 'doctors');
-            onValue(doctorsRef, (snapshot) => {
-                const data = snapshot.val();
-                const doctorsList = [];
-                const specialtiesSet = new Set();
+            
+            // Using onValue with error handling
+            const unsubscribe = onValue(
+                doctorsRef, 
+                (snapshot) => {
+                    try {
+                        const data = snapshot.val();
+                        const doctorsList = [];
+                        const specialtiesSet = new Set();
 
-                if (data) {
-                    Object.entries(data).forEach(([key, value]) => {
-                        doctorsList.push({
-                            id: key,
-                            ...value
-                        });
+                        if (data) {
+                            Object.entries(data).forEach(([key, value]) => {
+                                doctorsList.push({
+                                    id: key,
+                                    ...value
+                                });
 
-                        if (value.specialty) {
-                            specialtiesSet.add(value.specialty);
+                                if (value.specialty) {
+                                    specialtiesSet.add(value.specialty);
+                                }
+                            });
                         }
-                    });
-                }
 
-                setDoctors(doctorsList);
-                setSpecialties(Array.from(specialtiesSet));
-                setLoading(false);
-            });
+                        setDoctors(doctorsList);
+                        setSpecialties(Array.from(specialtiesSet));
+                        setLoading(false);
+                        
+                        if (doctorsList.length === 0 && data === null) {
+                            console.log('No doctors found in database');
+                        }
+                    } catch (snapshotError) {
+                        console.error("Error processing doctor data: ", snapshotError);
+                        setError("Failed to process doctor data. Please try refreshing the page.");
+                        setLoading(false);
+                    }
+                },
+                (databaseError) => {
+                    console.error("Database error: ", databaseError);
+                    setError(`Database connection error: ${databaseError.message}`);
+                    setLoading(false);
+                }
+            );
+            
+            // Clean up the listener on component unmount
+            return () => unsubscribe();
         } catch (error) {
-            console.error("Error fetching doctors: ", error);
+            console.error("Critical error fetching doctors: ", error);
+            setError(`Failed to connect to the database: ${error.message}`);
             setLoading(false);
         }
     };
@@ -95,15 +127,25 @@ function DoctorList() {
 
     const handleDeleteConfirm = async () => {
         if (doctorToDelete) {
+            setDeleteError(null);
             try {
                 const doctorRef = ref(database, `doctors/${doctorToDelete.id}`);
                 await remove(doctorRef);
                 setDeleteDialogOpen(false);
                 setDoctorToDelete(null);
+                
+                // Show success message
+                setSnackbarMessage(`Dr. ${doctorToDelete.name} has been successfully deleted.`);
+                setSnackbarOpen(true);
             } catch (error) {
                 console.error("Error deleting doctor: ", error);
+                setDeleteError(`Failed to delete doctor: ${error.message}`);
             }
         }
+    };
+    
+    const handleSnackbarClose = () => {
+        setSnackbarOpen(false);
     };
 
     const handleDeleteCancel = () => {
@@ -150,8 +192,26 @@ function DoctorList() {
                         Add New Doctor
                     </Button>
                 </Box>
-
                 <Paper sx={{ p: 2, mb: 4 }}>
+                    {error && (
+                        <Box mb={3}>
+                            <Alert 
+                                severity="error" 
+                                action={
+                                    <Button 
+                                        color="inherit" 
+                                        size="small" 
+                                        onClick={() => fetchDoctors()}
+                                    >
+                                        Retry
+                                    </Button>
+                                }
+                            >
+                                {error}
+                            </Alert>
+                        </Box>
+                    )}
+                
                     <Box display="flex" gap={2} mb={3}>
                         <TextField
                             label="Search"
@@ -178,7 +238,12 @@ function DoctorList() {
                     </Box>
 
                     {loading ? (
-                        <Typography>Loading doctors...</Typography>
+                        <Box display="flex" justifyContent="center" alignItems="center" p={4}>
+                            <CircularProgress />
+                            <Typography variant="body1" sx={{ ml: 2 }}>
+                                Loading doctors...
+                            </Typography>
+                        </Box>
                     ) : (
                         <>
                             <TableContainer>
@@ -249,6 +314,11 @@ function DoctorList() {
                     <DialogContentText>
                         Are you sure you want to delete Dr. {doctorToDelete?.name}? This action cannot be undone.
                     </DialogContentText>
+                    {deleteError && (
+                        <Alert severity="error" sx={{ mt: 2 }}>
+                            {deleteError}
+                        </Alert>
+                    )}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleDeleteCancel}>Cancel</Button>
@@ -257,6 +327,15 @@ function DoctorList() {
                     </Button>
                 </DialogActions>
             </Dialog>
+            
+            {/* Success Snackbar */}
+            <Snackbar
+                open={snackbarOpen}
+                autoHideDuration={6000}
+                onClose={handleSnackbarClose}
+                message={snackbarMessage}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            />
         </>
     );
 }

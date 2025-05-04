@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { initializeDatabase } from './firebase/initializeDb';
@@ -42,14 +42,24 @@ const theme = createTheme({
 
 function App() {
   const [user, loading] = useAuthState(auth);
+  const dbInitializedRef = useRef(false);
 
-    useEffect(() => {
-
-        const initDb = async () => {
-            await initializeDatabase();
-        };
-        initDb();
-    }, []);
+  useEffect(() => {
+    // Only initialize the database once and after auth state is loaded
+    if (!loading && !dbInitializedRef.current) {
+      const initDb = async () => {
+        try {
+          console.log('Initializing database...');
+          await initializeDatabase();
+          dbInitializedRef.current = true;
+          console.log('Database initialization complete');
+        } catch (error) {
+          console.error('Failed to initialize database:', error);
+        }
+      };
+      initDb();
+    }
+  }, [loading]);
 
   if (loading) {
     return (
