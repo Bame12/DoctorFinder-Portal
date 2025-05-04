@@ -1,8 +1,8 @@
 // src/components/Doctors/EditDoctor.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { database, storage, auth } from '../../firebase/firebase';
-import { ref, get, set } from 'firebase/database';
+import { db, storage, auth } from '../../firebase/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { signOut } from 'firebase/auth';
 import {
@@ -60,11 +60,11 @@ function EditDoctor() {
     useEffect(() => {
         const fetchDoctor = async () => {
             try {
-                const doctorRef = ref(database, `doctors/${id}`);
-                const snapshot = await get(doctorRef);
+                const doctorRef = doc(db, 'doctors', id);
+                const docSnapshot = await getDoc(doctorRef);
 
-                if (snapshot.exists()) {
-                    const doctorData = snapshot.val();
+                if (docSnapshot.exists()) {
+                    const doctorData = docSnapshot.data();
                     setFormData({
                         name: doctorData.name || '',
                         specialty: doctorData.specialty || '',
@@ -139,11 +139,10 @@ function EditDoctor() {
                 };
             }
 
-            // Update in Realtime Database
-            const doctorRef = ref(database, `doctors/${id}`);
-            await set(doctorRef, {
+            // Update in Firestore
+            const doctorRef = doc(db, 'doctors', id);
+            await updateDoc(doctorRef, {
                 ...doctorData,
-                id: id,
                 updatedAt: Date.now(),
                 experience: parseInt(formData.experience) || 0
             });
@@ -207,7 +206,13 @@ function EditDoctor() {
                 <Paper sx={{ p: 3 }}>
                     <Box component="form" onSubmit={handleSubmit}>
                         <Grid container spacing={3}>
-                            {/* Same form fields as AddDoctor component */}
+                            {/* Basic Information */}
+                            <Grid item xs={12}>
+                                <Typography variant="h6" gutterBottom>
+                                    Basic Information
+                                </Typography>
+                            </Grid>
+
                             <Grid item xs={12} md={6}>
                                 <TextField
                                     required
@@ -219,8 +224,199 @@ function EditDoctor() {
                                 />
                             </Grid>
 
-                            {/* Continue with all form fields similar to AddDoctor... */}
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    required
+                                    fullWidth
+                                    select
+                                    label="Specialty"
+                                    name="specialty"
+                                    value={formData.specialty}
+                                    onChange={handleChange}
+                                >
+                                    {SPECIALTIES.map((specialty) => (
+                                        <MenuItem key={specialty} value={specialty}>
+                                            {specialty}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
 
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    required
+                                    fullWidth
+                                    label="Email Address"
+                                    name="email"
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    required
+                                    fullWidth
+                                    label="Phone Number"
+                                    name="phone"
+                                    value={formData.phone}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
+
+                            {/* Location Information */}
+                            <Grid item xs={12}>
+                                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                                    Location Information
+                                </Typography>
+                            </Grid>
+
+                            <Grid item xs={12}>
+                                <TextField
+                                    required
+                                    fullWidth
+                                    label="Address"
+                                    name="address"
+                                    value={formData.address}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="City"
+                                    name="city"
+                                    value={formData.city}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Latitude"
+                                    name="latitude"
+                                    type="number"
+                                    value={formData.latitude}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Longitude"
+                                    name="longitude"
+                                    type="number"
+                                    value={formData.longitude}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
+
+                            {/* Additional Information */}
+                            <Grid item xs={12}>
+                                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                                    Additional Information
+                                </Typography>
+                            </Grid>
+
+                            <Grid item xs={12}>
+                                <TextField
+                                    fullWidth
+                                    multiline
+                                    rows={3}
+                                    label="About"
+                                    name="about"
+                                    value={formData.about}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Education"
+                                    name="education"
+                                    value={formData.education}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Years of Experience"
+                                    name="experience"
+                                    type="number"
+                                    value={formData.experience}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
+
+                            {/* Availability */}
+                            <Grid item xs={12}>
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            checked={formData.isAvailable}
+                                            onChange={handleChange}
+                                            name="isAvailable"
+                                            color="primary"
+                                        />
+                                    }
+                                    label="Available for appointments"
+                                />
+                            </Grid>
+
+                            <Grid item xs={12}>
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            checked={formData.acceptsInsurance}
+                                            onChange={handleChange}
+                                            name="acceptsInsurance"
+                                            color="primary"
+                                        />
+                                    }
+                                    label="Accepts medical insurance"
+                                />
+                            </Grid>
+
+                            {/* Photo Upload */}
+                            <Grid item xs={12}>
+                                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                                    Doctor Photo
+                                </Typography>
+                            </Grid>
+
+                            <Grid item xs={12}>
+                                <input
+                                    accept="image/*"
+                                    style={{ display: 'none' }}
+                                    id="photo-upload"
+                                    type="file"
+                                    onChange={handlePhotoChange}
+                                />
+                                <label htmlFor="photo-upload">
+                                    <Button variant="outlined" component="span">
+                                        Upload Photo
+                                    </Button>
+                                </label>
+
+                                {photoPreview && (
+                                    <Box mt={2}>
+                                        <img
+                                            src={photoPreview}
+                                            alt="Doctor preview"
+                                            style={{ maxWidth: '100%', maxHeight: '200px' }}
+                                        />
+                                    </Box>
+                                )}
+                            </Grid>
+
+                            {/* Submit Button */}
                             <Grid item xs={12} sx={{ mt: 2 }}>
                                 <Button
                                     type="submit"
@@ -237,7 +433,26 @@ function EditDoctor() {
                 </Paper>
             </Container>
 
-            {/* Same notifications as AddDoctor component */}
+            {/* Notifications */}
+            <Snackbar
+                open={!!error}
+                autoHideDuration={6000}
+                onClose={() => setError('')}
+            >
+                <Alert severity="error" onClose={() => setError('')}>
+                    {error}
+                </Alert>
+            </Snackbar>
+
+            <Snackbar
+                open={!!successMessage}
+                autoHideDuration={2000}
+                onClose={() => setSuccessMessage('')}
+            >
+                <Alert severity="success" onClose={() => setSuccessMessage('')}>
+                    {successMessage}
+                </Alert>
+            </Snackbar>
         </>
     );
 }

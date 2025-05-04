@@ -1,8 +1,8 @@
 // src/components/Doctors/AddDoctor.js
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { database, storage, auth } from '../../firebase/firebase';
-import { ref, push, set } from 'firebase/database';
+import { db, storage, auth } from '../../firebase/firebase';
+import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { signOut } from 'firebase/auth';
 import {
@@ -91,14 +91,20 @@ function AddDoctor() {
         setError('');
 
         try {
+            console.log('Starting to save doctor...');
+            console.log('User authenticated:', auth.currentUser?.email);
+            console.log('User UID:', auth.currentUser?.uid);
+
             const doctorData = { ...formData };
 
             // Upload photo if selected
             if (photo) {
+                console.log('Uploading photo...');
                 const photoRef = storageRef(storage, `doctors/${Date.now()}_${photo.name}`);
                 const uploadResult = await uploadBytes(photoRef, photo);
                 const photoURL = await getDownloadURL(uploadResult.ref);
                 doctorData.photoUrl = photoURL;
+                console.log('Photo uploaded successfully');
             }
 
             // Create location object
@@ -109,17 +115,37 @@ function AddDoctor() {
                 };
             }
 
-            // Add to Realtime Database
-            const doctorsRef = ref(database, 'doctors');
-            const newDoctorRef = push(doctorsRef);
-            await set(newDoctorRef, {
+            // Add to Firestore
+            const doctorsCollection = collection(db, 'doctors');
+
+            console.log('Data to save:', {
                 ...doctorData,
-                id: newDoctorRef.key,
                 createdAt: Date.now(),
                 rating: 0,
                 reviewCount: 0,
                 experience: parseInt(formData.experience) || 0
             });
+
+            const docRef = await addDoc(doctorsCollection, {
+                ...doctorData,
+                createdAt: Date.now(),
+                rating: 0,
+                reviewCount: 0,
+                experience: parseInt(formData.experience) || 0
+            });
+
+            console.log('Doctor saved successfully');
+            console.log('New doctor ID:', docRef.id);
+
+            // Verify the save by reading the data back
+            const docSnapshot = await getDoc(doc(db, 'doctors', docRef.id));
+
+            if (docSnapshot.exists()) {
+                console.log('Verified: Doctor data exists in Firestore');
+                console.log('Saved data:', docSnapshot.data());
+            } else {
+                console.error('Verification failed: No data found');
+            }
 
             setSuccessMessage('Doctor added successfully!');
             setTimeout(() => {
@@ -127,7 +153,16 @@ function AddDoctor() {
             }, 2000);
 
         } catch (error) {
-            setError(`Error adding doctor: ${error.message}`);
+            console.error('Full error object:', error);
+            console.error('Error code:', error.code);
+            console.error('Error message:', error.message);
+
+            // Check if it's a permission error
+            if (error.code === 'permission-denied') {
+                setError('Permission denied. Please check your database rules.');
+            } else {
+                setError(`Error adding doctor: ${error.message}`);
+            }
         } finally {
             setLoading(false);
         }

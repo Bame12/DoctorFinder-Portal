@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { database, auth } from '../../firebase/firebase';
-import { ref, onValue } from 'firebase/database';
+import { db, auth } from '../../firebase/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 import {
     Container,
     Grid,
@@ -30,23 +30,24 @@ function Dashboard() {
     useEffect(() => {
         const fetchData = async () => {
             // Count doctors
-            const doctorsRef = ref(database, 'doctors');
-            onValue(doctorsRef, (snapshot) => {
-                const data = snapshot.val();
-                const doctorsCount = data ? Object.keys(data).length : 0;
+            const doctorsRef = collection(db, 'doctors');
+            const unsubscribe = onSnapshot(doctorsRef, (snapshot) => {
+                const doctorsCount = snapshot.size;
                 setDoctorCount(doctorsCount);
 
                 // Get unique specialties
                 const specialties = new Set();
-                if (data) {
-                    Object.values(data).forEach(doctor => {
-                        if (doctor.specialty) {
-                            specialties.add(doctor.specialty);
-                        }
-                    });
-                }
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.specialty) {
+                        specialties.add(data.specialty);
+                    }
+                });
                 setSpecialtyCount(specialties.size);
             });
+
+            // Cleanup subscription on unmount
+            return () => unsubscribe();
         };
 
         fetchData();

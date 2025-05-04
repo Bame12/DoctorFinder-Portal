@@ -1,8 +1,8 @@
 // src/components/Reports/Reports.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { database, auth } from '../../firebase/firebase';
-import { ref, onValue } from 'firebase/database';
+import { db, auth } from '../../firebase/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import {
     Container,
@@ -53,23 +53,23 @@ function Reports() {
 
     const fetchData = async () => {
         try {
-            const doctorsRef = ref(database, 'doctors');
-            onValue(doctorsRef, (snapshot) => {
-                const data = snapshot.val();
+            const doctorsRef = collection(db, 'doctors');
+            const unsubscribe = onSnapshot(doctorsRef, (snapshot) => {
                 const doctorsList = [];
 
-                if (data) {
-                    Object.entries(data).forEach(([key, value]) => {
-                        doctorsList.push({
-                            id: key,
-                            ...value
-                        });
+                snapshot.forEach((doc) => {
+                    doctorsList.push({
+                        id: doc.id,
+                        ...doc.data()
                     });
-                }
+                });
 
                 setDoctors(doctorsList);
                 setLoading(false);
             });
+
+            // Cleanup subscription on unmount
+            return () => unsubscribe();
         } catch (error) {
             setError("Error fetching data: " + error.message);
             setLoading(false);
